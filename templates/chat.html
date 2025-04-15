@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="eng">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Chat</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <style>
+    :root {
+      --bg-color: #f8f9fa;
+      --text-color: #212529;
+      --chat-bg: #ffffff;
+      --input-bg: #ffffff;
+      --border-color: #dee2e6;
+    }
+
+    body.dark-mode {
+      --bg-color: #121212;
+      --text-color: #e0e0e0;
+      --chat-bg: #1e1e1e;
+      --input-bg: #2c2c2c;
+      --border-color: #444;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .chat-container {
+      max-width: 800px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .chat-header {
+      background-color: var(--chat-bg);
+      padding: 20px;
+      text-align: center;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 1.5rem;
+      font-weight: bold;
+      position: relative;
+    }
+
+    .chat-header .header-buttons {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+    }
+
+    .chat-header .header-buttons button {
+      margin-left: 10px;
+      font-size: 0.9rem;
+      padding: 5px 12px;
+      border-radius: 20px;
+      background-color: #6c757d;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    .chat-header .header-buttons button:hover {
+      background-color: #5a6268;
+    }
+
+    .chat-box {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      background-color: var(--chat-bg);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-message {
+      max-width: 70%;
+      padding: 12px 16px;
+      border-radius: 20px;
+      margin: 8px 0;
+      line-height: 1.4;
+      font-size: 1rem;
+      position: relative;
+      word-wrap: break-word;
+      color: var(--text-color);
+    }
+
+    .chat-message.user {
+      align-self: flex-end;
+      background-color: #d3d3d3;
+      border-bottom-right-radius: 0;
+    }
+
+    .chat-message.bot {
+      align-self: flex-start;
+      background-color: #bcbcbc;
+      border-bottom-left-radius: 0;
+    }
+
+    body.dark-mode .chat-message.user {
+      background-color: #3a3a3a;
+      color: #e0e0e0;
+    }
+
+    body.dark-mode .chat-message.bot {
+      background-color: #2e2e2e;
+      color: #e0e0e0;
+    }
+
+    .chat-message .time {
+      display: block;
+      font-size: 0.75rem;
+      color: gray;
+      margin-top: 5px;
+    }
+
+    .chat-input-area {
+      display: flex;
+      border-top: 1px solid var(--border-color);
+      background-color: var(--chat-bg);
+      padding: 12px;
+    }
+
+    #message {
+      flex: 1;
+      padding: 12px 16px;
+      font-size: 1rem;
+      background: var(--input-bg);
+      color: var(--text-color);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      outline: none;
+    }
+
+    button {
+      padding: 12px 20px;
+      font-size: 1rem;
+      margin-left: 10px;
+      background-color: #6c757d;
+      border: none;
+      border-radius: 20px;
+      color: #fff;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    button:hover {
+      background-color: #5a6268;
+    }
+
+    .typing-dots::after {
+      content: '';
+      display: inline-block;
+      animation: dots 1.2s steps(4, end) infinite;
+      font-weight: bold;
+    }
+
+    @keyframes dots {
+      0%, 20% { content: ''; }
+      40% { content: '.'; }
+      60% { content: '..'; }
+      80%, 100% { content: '...'; }
+    }
+
+    #sendBtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <div class="chat-header">
+      Chat Assistant
+      <div class="header-buttons">
+        <button onclick="toggleTheme()">Change Mod</button>
+        <button onclick="clearHistory()">Clear</button>
+      </div>
+    </div>
+    <div class="chat-box" id="chat"></div>
+    <div class="chat-input-area">
+      <input type="text" id="message" placeholder="Say Something...">
+      <button id="sendBtn" onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const input = document.getElementById("message");
+    const sendBtn = document.getElementById("sendBtn");
+    let currentController = null;
+
+    window.onload = () => {
+      const history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
+      history.forEach(entry => {
+        appendMessage(entry.role, entry.text, entry.time);
+      });
+      if (localStorage.getItem("theme") === "dark") {
+        document.body.classList.add("dark-mode");
+      }
+      chat.scrollTop = chat.scrollHeight;
+    };
+
+    function toggleTheme() {
+      document.body.classList.toggle("dark-mode");
+      const mode = document.body.classList.contains("dark-mode") ? "dark" : "light";
+      localStorage.setItem("theme", mode);
+    }
+
+    function clearHistory() {
+      if (currentController) {
+        currentController.abort();
+        currentController = null;
+      }
+      localStorage.removeItem("chatHistory");
+      chat.innerHTML = "";
+    }
+
+    async function sendMessage() {
+      const msg = input.value.trim();
+      if (!msg) return;
+
+      sendBtn.disabled = true;
+      input.disabled = true;
+      input.style.opacity = "0.5";
+
+      const now = new Date();
+      const time = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+      appendMessage("user", msg, time);
+      saveToHistory("user", msg, time);
+      input.value = "";
+
+      const typingMsg = appendMessage("bot", `<span class="typing-dots">Thinking</span>`, time);
+
+      currentController = new AbortController();
+
+      const history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
+      const formattedHistory = history.map(entry => ({
+        role: entry.role === "user" ? "user" : "assistant",
+        content: entry.text
+      }));
+      formattedHistory.push({ role: "user", content: msg });
+
+      try {
+        const res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: formattedHistory }),
+          signal: currentController.signal
+        });
+
+        const data = await res.json();
+        typingMsg.innerHTML = `${markdownToHtml(data.response)}<div class="time">${time}</div>`;
+        saveToHistory("bot", data.response, time);
+      } catch (error) {
+        if (error.name === "AbortError") {
+          typingMsg.remove();
+        } else {
+          typingMsg.innerHTML = `<i>Bir hata oluştu.</i><div class="time">${time}</div>`;
+        }
+      } finally {
+        sendBtn.disabled = false;
+        input.disabled = false;
+        input.style.opacity = "1";
+        input.focus();
+        currentController = null;
+      }
+    }
+
+    function appendMessage(role, text, time) {
+      const div = document.createElement("div");
+      div.classList.add("chat-message", role);
+      div.innerHTML = `${markdownToHtml(text)}<div class="time">${time}</div>`;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      return div;
+    }
+
+    function saveToHistory(role, text, time) {
+      const history = JSON.parse(localStorage.getItem("chatHistory") || "[]");
+      history.push({ role, text, time });
+      localStorage.setItem("chatHistory", JSON.stringify(history));
+    }
+
+    function markdownToHtml(text) {
+      return text
+        .replace(/\n/g, '<br>')
+        .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+    }
+
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !input.disabled) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+  </script>
+</body>
+</html>

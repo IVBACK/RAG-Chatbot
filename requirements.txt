@@ -1,0 +1,11 @@
+flask
+flask-cors
+python-dotenv
+nltk
+numpy
+psycopg2-binary
+sentence-transformers
+transformers
+PyPDF2
+python-docx
+ollama

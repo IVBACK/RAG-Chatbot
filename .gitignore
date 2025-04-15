@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+
+# Python virtual environments
+env/
+
+# SQLite and temporary files
+*.sqlite3
+
+# Static deployment assets
+deployment/static/favicon.png

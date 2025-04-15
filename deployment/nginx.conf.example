@@ -1,0 +1,4 @@
+##
+# Rate Limiting
+##
+limit_req_zone $binary_remote_addr zone=chat_limit:10m rate=5r/s;
